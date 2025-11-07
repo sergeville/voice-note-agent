@@ -1,0 +1,117 @@
+// Prisma schema for Voice-to-Note Taking Agent
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Meeting {
+  id                String    @id @default(uuid())
+  userId            String?
+  title             String
+  meetingDate       DateTime
+  startTime         String?
+  endTime           String?
+  durationMinutes   Int?
+  location          String?
+  meetingType       String?
+  status            String    @default("processing")
+  audioFilePath     String?
+  audioFileSize     Int?
+  audioQualityScore Float?
+  confidenceScore   Float?
+  processingTimeSeconds Int?
+  participants      String?   // JSON string
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  transcriptions    Transcription[]
+  speakers          Speaker[]
+  actionItems       ActionItem[]
+  decisions         Decision[]
+  meetingMinutes    MeetingMinute?
+}
+
+model Speaker {
+  id                    String    @id @default(uuid())
+  meetingId             String
+  speakerLabel          String
+  speakerName           String?
+  voiceSignature        String?   // JSON string
+  totalSpeakingTimeSeconds Int?
+  wordCount             Int?
+  createdAt             DateTime  @default(now())
+  
+  meeting               Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  transcriptions        Transcription[]
+}
+
+model Transcription {
+  id                String    @id @default(uuid())
+  meetingId         String
+  speakerId         String?
+  segmentIndex      Int
+  startTimeSeconds  Float?
+  endTimeSeconds    Float?
+  text              String
+  confidenceScore   Float?
+  createdAt         DateTime  @default(now())
+  
+  meeting           Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  speaker           Speaker?  @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+}
+
+model ActionItem {
+  id                String    @id @default(uuid())
+  meetingId         String
+  title             String
+  assignee          String?
+  dueDate           DateTime?
+  priority          String?
+  status            String    @default("pending")
+  extractedFromSegment Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  meeting           Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model Decision {
+  id                String    @id @default(uuid())
+  meetingId         String
+  decisionText      String
+  decisionTime      DateTime?
+  participants      String?   // JSON string
+  consensusType     String?
+  extractedFromSegment Int?
+  createdAt         DateTime  @default(now())
+  
+  meeting           Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model MeetingMinute {
+  id                String    @id @default(uuid())
+  meetingId         String    @unique
+  markdownContent   String
+  yamlFrontMatter   String?   // JSON string
+  executiveSummary  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  meeting           Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model Template {
+  id                String    @id @default(uuid())
+  name              String
+  description       String?
+  structure         String    // JSON string
+  defaultSettings   String?   // JSON string
+  isDefault         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}

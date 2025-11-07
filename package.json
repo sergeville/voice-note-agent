@@ -1,0 +1,33 @@
+{
+  "name": "voice-note-agent",
+  "version": "1.0.0",
+  "description": "Voice-to-Note Taking Agent - Automated meeting transcription and analysis",
+  "private": true,
+  "scripts": {
+    "install": "pnpm run install:backend && pnpm run install:frontend",
+    "install:backend": "cd backend && pnpm install",
+    "install:frontend": "cd frontend/voice-note-frontend && pnpm install",
+    "setup": "pnpm run install && pnpm run db:setup",
+    "db:setup": "cd backend && npx prisma generate && npx prisma db push",
+    "start": "concurrently \"pnpm run start:backend\" \"pnpm run start:frontend\"",
+    "start:backend": "cd backend && pnpm dev",
+    "start:frontend": "cd frontend/voice-note-frontend && pnpm dev",
+    "dev": "pnpm run start",
+    "build": "pnpm run build:backend && pnpm run build:frontend",
+    "build:backend": "cd backend && pnpm build",
+    "build:frontend": "cd frontend/voice-note-frontend && pnpm build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "voice-notes",
+    "transcription",
+    "meeting-minutes",
+    "whisper",
+    "ollama",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT"
+}
