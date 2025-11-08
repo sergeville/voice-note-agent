@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { meetingAPI } from '../lib/api';
-import { Calendar, Clock, Users, ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 interface Meeting {
   id: string;
   title: string;
   meetingDate: string;
   status: string;
+  durationMinutes?: number;
   participants?: string;
   _count?: {
     actionItems: number;
@@ -15,19 +16,22 @@ interface Meeting {
   };
 }
 
+type TabType = 'recent' | 'starred' | 'created' | 'shared';
+
 export default function MeetingLibrary() {
+  const navigate = useNavigate();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<TabType>('created');
+  const [typeFilter] = useState('All Types'); // Will be used for future filtering
 
   useEffect(() => {
     loadMeetings();
-  }, [filter]);
+  }, [activeTab]);
 
   const loadMeetings = async () => {
     try {
-      const params = filter !== 'all' ? { status: filter } : {};
-      const response = await meetingAPI.getAllMeetings(params);
+      const response = await meetingAPI.getAllMeetings();
       setMeetings(response.meetings);
     } catch (error) {
       console.error('Failed to load meetings:', error);
@@ -35,6 +39,24 @@ export default function MeetingLibrary() {
       setLoading(false);
     }
   };
+
+  // Filter meetings based on active tab
+  const getFilteredMeetings = () => {
+    switch (activeTab) {
+      case 'recent':
+        return meetings.slice(0, 10); // Most recent 10
+      case 'starred':
+        return []; // TODO: Implement starred functionality
+      case 'created':
+        return meetings; // All meetings created by user
+      case 'shared':
+        return []; // TODO: Implement shared functionality
+      default:
+        return meetings;
+    }
+  };
+
+  const filteredMeetings = getFilteredMeetings();
 
   if (loading) {
     return (
@@ -46,35 +68,115 @@ export default function MeetingLibrary() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Meeting Library</h1>
-          <p className="mt-2 text-gray-600">Browse and manage your meeting minutes</p>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">My Records</h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <div className="flex items-center space-x-8">
+          <TabButton
+            label="Recent"
+            icon="🕐"
+            active={activeTab === 'recent'}
+            onClick={() => setActiveTab('recent')}
+          />
+          <TabButton
+            label="Starred"
+            icon="⭐"
+            active={activeTab === 'starred'}
+            onClick={() => setActiveTab('starred')}
+          />
+          <TabButton
+            label="Created by me"
+            icon="👤"
+            active={activeTab === 'created'}
+            onClick={() => setActiveTab('created')}
+          />
+          <TabButton
+            label="Shared with me"
+            icon="🔗"
+            active={activeTab === 'shared'}
+            onClick={() => setActiveTab('shared')}
+          />
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4">
-        <div className="flex space-x-2">
-          <FilterButton label="All" value="all" active={filter === 'all'} onClick={setFilter} />
-          <FilterButton label="Completed" value="completed" active={filter === 'completed'} onClick={setFilter} />
-          <FilterButton label="Processing" value="processing" active={filter === 'processing'} onClick={setFilter} />
-          <FilterButton label="Transcribed" value="transcribed" active={filter === 'transcribed'} onClick={setFilter} />
+      {/* Filters and Type Dropdown */}
+      <div className="flex items-center space-x-4">
+        <div className="relative">
+          <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+            <span className="text-sm font-medium text-gray-700">{typeFilter}</span>
+            <ChevronDown className="w-4 h-4 text-gray-500" />
+          </button>
         </div>
       </div>
 
-      {/* Meeting List */}
-      <div className="space-y-4">
-        {meetings.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <p className="text-gray-500">No meetings found. Upload your first meeting recording to get started!</p>
-            <Link to="/upload" className="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition">
-              Upload Meeting
-            </Link>
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm">
+        {/* Table Header */}
+        <div className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-200 text-sm font-medium text-gray-600">
+          <div className="col-span-1"></div>
+          <div className="col-span-4">Title</div>
+          <div className="col-span-2">Duration</div>
+          <div className="col-span-3">Date created ↓</div>
+          <div className="col-span-2">Creator</div>
+        </div>
+
+        {/* Table Body */}
+        {filteredMeetings.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-gray-500 mb-4">
+              {activeTab === 'starred' && 'No starred meetings yet.'}
+              {activeTab === 'shared' && 'No meetings shared with you.'}
+              {activeTab === 'recent' && 'No recent meetings.'}
+              {activeTab === 'created' && 'No meetings found. Upload your first recording!'}
+            </p>
+            {activeTab === 'created' && (
+              <button
+                onClick={() => navigate('/upload')}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+              >
+                Upload Meeting
+              </button>
+            )}
           </div>
         ) : (
-          meetings.map((meeting) => (
-            <MeetingCard key={meeting.id} meeting={meeting} />
+          filteredMeetings.map((meeting) => (
+            <div
+              key={meeting.id}
+              onClick={() => navigate(`/meeting/${meeting.id}`)}
+              className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition"
+            >
+              <div className="col-span-1 flex items-center">
+                {meeting.status === 'completed' ? '🎙️' : '⏳'}
+              </div>
+              <div className="col-span-4 flex items-center">
+                <span className="font-medium text-gray-900 truncate">{meeting.title}</span>
+              </div>
+              <div className="col-span-2 flex items-center text-sm text-gray-600">
+                {meeting.durationMinutes
+                  ? `${Math.floor(meeting.durationMinutes)}min ${Math.floor((meeting.durationMinutes % 1) * 60)}s`
+                  : 'N/A'}
+              </div>
+              <div className="col-span-3 flex items-center text-sm text-gray-600">
+                {new Date(meeting.meetingDate).toLocaleString('en-US', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+              <div className="col-span-2 flex items-center">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+                    U
+                  </div>
+                  <span className="text-sm text-gray-700">User</span>
+                </div>
+              </div>
+            </div>
           ))
         )}
       </div>
@@ -82,73 +184,25 @@ export default function MeetingLibrary() {
   );
 }
 
-function FilterButton({ label, value, active, onClick }: any) {
-  return (
-    <button
-      onClick={() => onClick(value)}
-      className={`px-4 py-2 rounded-md font-medium transition ${
-        active
-          ? 'bg-blue-600 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-    >
-      {label}
-    </button>
-  );
+interface TabButtonProps {
+  label: string;
+  icon: string;
+  active: boolean;
+  onClick: () => void;
 }
 
-function MeetingCard({ meeting }: { meeting: Meeting }) {
-  const statusColors: { [key: string]: string } = {
-    completed: 'bg-green-100 text-green-800',
-    processing: 'bg-yellow-100 text-yellow-800',
-    transcribed: 'bg-blue-100 text-blue-800',
-    uploaded: 'bg-gray-100 text-gray-800',
-    error: 'bg-red-100 text-red-800'
-  };
-
-  const statusColor = statusColors[meeting.status] || statusColors.uploaded;
-
+function TabButton({ label, icon, active, onClick }: TabButtonProps) {
   return (
-    <Link to={`/meeting/${meeting.id}`} className="block">
-      <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center space-x-3">
-              <h3 className="text-lg font-semibold text-gray-900">{meeting.title}</h3>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>
-                {meeting.status}
-              </span>
-            </div>
-            
-            <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
-              <div className="flex items-center space-x-1">
-                <Calendar className="w-4 h-4" />
-                <span>{new Date(meeting.meetingDate).toLocaleDateString()}</span>
-              </div>
-              {meeting.participants && (
-                <div className="flex items-center space-x-1">
-                  <Users className="w-4 h-4" />
-                  <span>{meeting.participants.split(',').length} participants</span>
-                </div>
-              )}
-              {meeting._count && (
-                <>
-                  <div className="flex items-center space-x-1">
-                    <span className="font-medium">{meeting._count.actionItems}</span>
-                    <span>action items</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <span className="font-medium">{meeting._count.decisions}</span>
-                    <span>decisions</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          
-          <ChevronRight className="w-5 h-5 text-gray-400" />
-        </div>
-      </div>
-    </Link>
+    <button
+      onClick={onClick}
+      className={`flex items-center space-x-2 pb-3 border-b-2 transition ${
+        active
+          ? 'border-blue-600 text-blue-600'
+          : 'border-transparent text-gray-600 hover:text-gray-900'
+      }`}
+    >
+      <span>{icon}</span>
+      <span className="font-medium">{label}</span>
+    </button>
   );
 }

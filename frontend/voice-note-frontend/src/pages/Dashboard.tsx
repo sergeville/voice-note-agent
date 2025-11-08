@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { meetingAPI, systemAPI } from '../lib/api';
-import { BarChart3, FileText, CheckCircle2, Clock, Cpu, Mic } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { meetingAPI } from '../lib/api';
+import { Mic, Upload, Video, MonitorPlay, FileText } from 'lucide-react';
 
 interface Stats {
   totalMeetings: number;
@@ -10,9 +11,19 @@ interface Stats {
   totalDecisions: number;
 }
 
+interface Meeting {
+  id: string;
+  title: string;
+  meetingDate: string;
+  status: string;
+  durationMinutes?: number;
+  participants?: string;
+}
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
-  const [config, setConfig] = useState<any>(null);
+  const [recentMeetings, setRecentMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,18 +32,38 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
-      const [statsResponse, configResponse] = await Promise.all([
+      const [statsResponse, meetingsResponse] = await Promise.all([
         meetingAPI.getStats(),
-        systemAPI.getConfig()
+        meetingAPI.getAllMeetings()
       ]);
       setStats(statsResponse.stats);
-      setConfig(configResponse);
+      setRecentMeetings(meetingsResponse.meetings.slice(0, 2));
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  // Get username or default
+  const userName = 'User';
+
+  // Random inspiring quotes
+  const quotes = [
+    { text: 'Thinking: the talking of the soul with itself.', author: 'Plato' },
+    { text: 'The only true wisdom is in knowing you know nothing.', author: 'Socrates' },
+    { text: 'Quality is not an act, it is a habit.', author: 'Aristotle' },
+    { text: 'We are what we repeatedly do.', author: 'Aristotle' }
+  ];
+  const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
   if (loading) {
     return (
@@ -44,168 +75,156 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-2 text-gray-600">Overview of your meeting analytics</p>
+      {/* Greeting Header */}
+      <div className="flex items-start space-x-3">
+        <span className="text-4xl">👋</span>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {getGreeting()}, {userName}
+          </h1>
+          <p className="mt-2 text-gray-600 italic flex items-center space-x-2">
+            <span>💭</span>
+            <span className="text-sm">
+              <span className="font-medium">{randomQuote.author}</span>: {randomQuote.text}
+            </span>
+          </p>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          icon={<FileText className="w-8 h-8" />}
-          title="Total Meetings"
-          value={stats?.totalMeetings || 0}
+      {/* Action Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ActionCard
+          icon={<Mic className="w-6 h-6" />}
+          title="Instant record"
+          onClick={() => navigate('/upload')}
           color="blue"
         />
-        <StatCard
-          icon={<CheckCircle2 className="w-8 h-8" />}
-          title="Completed"
-          value={stats?.completedMeetings || 0}
+        <ActionCard
+          icon={<Upload className="w-6 h-6" />}
+          title="Upload & transcribe"
+          onClick={() => navigate('/upload')}
           color="green"
         />
-        <StatCard
-          icon={<Clock className="w-8 h-8" />}
-          title="Processing"
-          value={stats?.processingMeetings || 0}
-          color="yellow"
-        />
-        <StatCard
-          icon={<BarChart3 className="w-8 h-8" />}
-          title="Action Items"
-          value={stats?.totalActionItems || 0}
+        <ActionCard
+          icon={<Video className="w-6 h-6" />}
+          title="Record online meeting"
+          onClick={() => navigate('/upload')}
           color="purple"
+          badge="Coming Soon"
+        />
+        <ActionCard
+          icon={<MonitorPlay className="w-6 h-6" />}
+          title="Record screen"
+          onClick={() => navigate('/upload')}
+          color="orange"
+          badge="Beta"
         />
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <QuickActionCard
-            title="Upload Audio"
-            description="Upload a meeting recording for transcription"
-            link="/upload"
-            color="blue"
-          />
-          <QuickActionCard
-            title="View Library"
-            description="Browse all your processed meetings"
-            link="/library"
-            color="green"
-          />
-          <QuickActionCard
-            title="Latest Meeting"
-            description="View your most recent meeting minutes"
-            link="/library"
-            color="purple"
-          />
-        </div>
-      </div>
+      {/* My Records Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">My Records</h2>
 
-      {/* System Status */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">System Configuration</h2>
-        <div className="space-y-4">
-          <div className="flex items-start space-x-3">
-            <Mic className="w-5 h-5 text-blue-600 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">Transcription Engine</p>
-              <p className="text-sm text-gray-600">{config?.transcription?.service || 'OpenAI Whisper'}</p>
-              {config?.transcription?.fallbackMode && (
-                <p className="text-xs text-amber-600 mt-1">
-                  ⚠️ Using {config.transcription.fallbackMode} (no API key configured)
-                </p>
-              )}
-            </div>
-            <StatusBadge status={config?.transcription?.hasApiKey ? 'configured' : 'fallback'} />
+        <div className="bg-white rounded-lg shadow-sm">
+          {/* Table Header */}
+          <div className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-200 text-sm font-medium text-gray-600">
+            <div className="col-span-1"></div>
+            <div className="col-span-5">Title</div>
+            <div className="col-span-2">Duration</div>
+            <div className="col-span-3">Date created</div>
+            <div className="col-span-1">Creator</div>
           </div>
 
-          <div className="flex items-start space-x-3">
-            <Cpu className="w-5 h-5 text-purple-600 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">Analysis Model</p>
-              <p className="text-sm text-gray-600">
-                {config?.analysis?.service || 'Ollama'} - <span className="font-mono text-xs">{config?.analysis?.model || 'llama3.1:70b'}</span>
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Fallback: {config?.analysis?.fallbackMode || 'Rule-based Analysis'}
-              </p>
+          {/* Table Body */}
+          {recentMeetings.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">No meetings found. Upload your first recording!</p>
+              <button
+                onClick={() => navigate('/upload')}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+              >
+                Upload Meeting
+              </button>
             </div>
-            <StatusBadge status="ready" />
-          </div>
+          ) : (
+            <div>
+              {recentMeetings.map((meeting) => (
+                <div
+                  key={meeting.id}
+                  onClick={() => navigate(`/meeting/${meeting.id}`)}
+                  className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition"
+                >
+                  <div className="col-span-1 flex items-center">
+                    {meeting.status === 'completed' ? '🎙️' : '⏳'}
+                  </div>
+                  <div className="col-span-5 flex items-center">
+                    <span className="font-medium text-gray-900">{meeting.title}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center text-sm text-gray-600">
+                    {meeting.durationMinutes
+                      ? `${Math.floor(meeting.durationMinutes)}min ${Math.floor((meeting.durationMinutes % 1) * 60)}s`
+                      : 'N/A'}
+                  </div>
+                  <div className="col-span-3 flex items-center text-sm text-gray-600">
+                    {new Date(meeting.meetingDate).toLocaleString()}
+                  </div>
+                  <div className="col-span-1 flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+                      {userName.charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+              ))}
 
-          <div className="flex items-start space-x-3">
-            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">Backend API</p>
-              <p className="text-sm text-gray-600">Environment: {config?.environment || 'development'}</p>
+              <div className="px-6 py-4 text-center">
+                <button
+                  onClick={() => navigate('/library')}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  View all meetings →
+                </button>
+              </div>
             </div>
-            <StatusBadge status="online" />
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function StatCard({ icon, title, value, color }: any) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    purple: 'bg-purple-50 text-purple-600'
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className={`inline-flex p-3 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
-        {icon}
-      </div>
-      <div className="mt-4">
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-      </div>
-    </div>
-  );
+interface ActionCardProps {
+  icon: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  color: string;
+  badge?: string;
 }
 
-function QuickActionCard({ title, description, link, color }: any) {
-  const colorClasses = {
-    blue: 'border-blue-200 hover:border-blue-400 hover:bg-blue-50',
-    green: 'border-green-200 hover:border-green-400 hover:bg-green-50',
-    purple: 'border-purple-200 hover:border-purple-400 hover:bg-purple-50'
+function ActionCard({ icon, title, onClick, color, badge }: ActionCardProps) {
+  const colorClasses: { [key: string]: string } = {
+    blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
+    green: 'bg-green-50 text-green-600 hover:bg-green-100',
+    purple: 'bg-purple-50 text-purple-600 hover:bg-purple-100',
+    orange: 'bg-orange-50 text-orange-600 hover:bg-orange-100'
   };
 
   return (
-    <a
-      href={link}
-      className={`block p-4 border-2 rounded-lg transition-all ${colorClasses[color as keyof typeof colorClasses]}`}
+    <button
+      onClick={onClick}
+      className={`relative p-6 rounded-lg border border-gray-200 transition-all hover:shadow-md ${
+        colorClasses[color] || colorClasses.blue
+      }`}
     >
-      <h3 className="font-semibold text-gray-900">{title}</h3>
-      <p className="mt-1 text-sm text-gray-600">{description}</p>
-    </a>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const statusConfig = {
-    online: { color: 'green', label: 'Online' },
-    ready: { color: 'green', label: 'Ready' },
-    configured: { color: 'green', label: 'Configured' },
-    fallback: { color: 'amber', label: 'Fallback' },
-    offline: { color: 'red', label: 'Offline' }
-  };
-
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.offline;
-  const colorClasses = {
-    green: 'bg-green-100 text-green-700',
-    amber: 'bg-amber-100 text-amber-700',
-    red: 'bg-red-100 text-red-700'
-  };
-
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${colorClasses[config.color as keyof typeof colorClasses]}`}>
-      {config.label}
-    </span>
+      {badge && (
+        <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium bg-white rounded-full text-gray-600 border border-gray-200">
+          {badge}
+        </span>
+      )}
+      <div className="flex flex-col items-center space-y-2">
+        {icon}
+        <span className="font-medium text-sm">{title}</span>
+      </div>
+    </button>
   );
 }
